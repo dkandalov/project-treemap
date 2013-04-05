@@ -11,7 +11,7 @@ Screenshots
 ===========
 
 Treemap view of [IntelliJ community edition](https://github.com/JetBrains/intellij-community) at the project root.
-<br/>(Numbers below package names show estimated size of all classes it contains, see below for definition of "class size".)
+<br/>(Numbers below package names show estimated size of all classes it contains; please see definition of class size below.)
 <img src="https://github.com/dkandalov/project-treemap/blob/master/screenshots/intellij-treemap.png?raw=true" alt="auto-revert screenshot" title="auto-revert screenshot" align="left" />
 
 Treemap view for "com.intellij" package under "platform-impl" source root.
