@@ -1,9 +1,9 @@
 What is this?
 =============
 
-This is a micro-plugin IntelliJ that shows project packages/classes treemap using [d3.js](http://d3js.org/).
+This is a micro-plugin for IntelliJ that shows packages/classes treemap using [d3.js](http://d3js.org/).
 <br/>
-(It runs inside [intellij-eval](https://github.com/dkandalov/intellij_eval) plugin and requires browser with SVG support.
+(It runs inside [intellij-eval](https://github.com/dkandalov/intellij_eval) plugin and needs browser with SVG support.
 Implemented for Java but should be easy to extend for other languages supported by IntelliJ.)
 
 
@@ -14,7 +14,7 @@ Treemap view of [IntelliJ community edition](https://github.com/JetBrains/intell
 <br/>(Numbers below package names show estimated size of all classes it contains; please see definition of class size below.)
 <img src="https://github.com/dkandalov/project-treemap/blob/master/screenshots/intellij-treemap.png?raw=true" alt="auto-revert screenshot" title="auto-revert screenshot" align="left" />
 
-Treemap view for "com.intellij" package under "platform-impl" source root.
+Treemap view of "com.intellij" package under "platform-impl" source root.
 <img src="https://github.com/dkandalov/project-treemap/blob/master/screenshots/intellij-treemap2.png?raw=true" alt="auto-revert screenshot" title="auto-revert screenshot" align="left" />
 
 
