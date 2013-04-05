@@ -201,24 +201,24 @@ class ProjectTreeMap {
 			if (!psiClass.containingFile instanceof PsiJavaFile)
 				throw new IllegalArgumentException("$psiClass is not a Java class")
 
-			int statementCount = 0
+			int amountOfStatements = 0
 			psiClass.accept(new PsiRecursiveElementVisitor() {
 				@Override void visitElement(PsiElement element) {
-					if (element instanceof PsiStatement) statementCount++
+					if (element instanceof PsiStatement) amountOfStatements++
 					super.visitElement(element)
 				}
 			})
 
 			1 + // this is to account for class declaration
-			statementCount +
+			amountOfStatements +
 			psiClass.fields.size() +
 			psiClass.initializers.size() +
-			psiClass.constructors.sum(0){ sizeOfMethod((PsiMethod) it) } +
-			psiClass.methods.sum(0){ sizeOfMethod((PsiMethod) it) } +
+			psiClass.constructors.sum(0){ sizeOfMethodDeclaration((PsiMethod) it) } +
+			psiClass.methods.sum(0){ sizeOfMethodDeclaration((PsiMethod) it) } +
 			psiClass.innerClasses.sum(0){ sizeOf((PsiClass) it) }
 		}
 
-		private static int sizeOfMethod(PsiMethod psiMethod) { 1 + psiMethod.parameterList.parametersCount }
+		private static int sizeOfMethodDeclaration(PsiMethod psiMethod) { 1 + psiMethod.parameterList.parametersCount }
 	}
 
 	static class Container {
