@@ -2,9 +2,6 @@ import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
-import com.intellij.openapi.progress.PerformInBackgroundOption
-import com.intellij.openapi.progress.ProgressIndicator
-import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.psi.*
@@ -13,17 +10,11 @@ import http.SimpleHttpServer
 import javax.swing.*
 
 import static http.Util.restartHttpServer
-import static intellijeval.PluginUtil.registerAction
-import static intellijeval.PluginUtil.show
-import static intellijeval.PluginUtil.showInConsole
+import static intellijeval.PluginUtil.*
 
 /**
  * What could be improved:
- *  + compact one-child containers
- *  + make sure class size calculation makes sense (count statements?)
  *  - open treemap based on currently selected item in project view or currently open file
- *  + show size under package/class name
- *  + fix not-removed svgs in UI and other UI exceptions
  *  - ask whether to recalculate treemap (better calculate if it's null; have separate action to recalculate it)
  *
  *  - popup hints for small rectangles in treemap (otherwise it's impossible to read package/class name)
@@ -38,7 +29,7 @@ class ProjectTreeMap {
 
 	// TODO this should be a container per project
 	// TODO must be cached like http server is cached (otherwise it's not really cached)
-	private static Container rootContainer = null // TODO will it be GCed on plugin reload?
+	private static Container treeMapRoot = null // TODO will it be GCed on plugin reload?
 
 	static initActions(String pluginPath) {
 		registerAction("ProjectTreeMap-Show", "alt T") { AnActionEvent event ->
@@ -48,12 +39,7 @@ class ProjectTreeMap {
 			}
 		}
 		registerAction("ProjectTreeMap-RecalculateTree", "alt R") { AnActionEvent event ->
-//			if (rootContainer != null) {
-//				def userResponse = JOptionPane.showConfirmDialog(null, "Reset project treemap?", "TreeMap", JOptionPane.YES_NO_OPTION)
-//				if (userResponse != JOptionPane.YES_OPTION) return
-//			}
-
-			rootContainer = null
+			treeMapRoot = null
 			ensureRootContainerInitialized(event.project) {
 				show("Recalculated project tree map")
 			}
@@ -62,30 +48,23 @@ class ProjectTreeMap {
 	}
 
 	private static ensureRootContainerInitialized(Project project, Closure closure) {
-		if (rootContainer != null) return closure.call()
+		if (treeMapRoot != null) return closure.call()
 
-		new Task.Backgroundable(project, "Building tree map index for project...", true, PerformInBackgroundOption.ALWAYS_BACKGROUND) {
-			@Override void run(ProgressIndicator indicator) {
+		doInBackground("Building tree map index for project...", {
 				ApplicationManager.application.runReadAction {
 					try {
-						rootContainer = new PackageAndClassTreeBuilder(project).buildTree()
+						treeMapRoot = new PackageAndClassTreeBuilder(project).buildTree()
 					} catch (Exception e) {
 						showInConsole(e, project)
 					}
 				}
-			}
-
-			@Override void onSuccess() {
-				closure.call()
-			}
-
-		}.queue()
+		}, closure)
 	}
 
 	private static  SimpleHttpServer restartHttpServer(String pluginPath) {
 		def server = restartHttpServer("ProjectTreeMap_HttpServer", pluginPath,
-				{ String requestURI -> new RequestHandler(rootContainer).handleRequest(requestURI) },
-				{ Exception e -> SwingUtilities.invokeLater { ProjectTreeMap.LOG.error("", e) } }
+				{ String requestURI -> new RequestHandler(treeMapRoot).handleRequest(requestURI) },
+				{ Exception e -> SwingUtilities.invokeLater { LOG.error("", e) } }
 		)
 		server
 	}
@@ -157,12 +136,13 @@ class ProjectTreeMap {
 		}
 
 		public Container buildTree() {
-			def rootFolders = sourceRootDirectoriesIn(project)
-			def rootChildren = rootFolders.collect { convertToContainerHierarchy(it).withName(it.parent.name + "/" + it.name) }
-			new Container("", rootChildren)
+			def topLevelContainers = sourceRootsIn(project).collect {
+				convertToContainerHierarchy(it).withName(it.parent.name + "/" + it.name)
+			}
+			new Container("", topLevelContainers)
 		}
 
-		private static Collection<PsiDirectory> sourceRootDirectoriesIn(Project project) {
+		private static Collection<PsiDirectory> sourceRootsIn(Project project) {
 			def psiManager = PsiManager.getInstance(project)
 			ProjectRootManager.getInstance(project).contentSourceRoots.collect{ psiManager.findDirectory(it) }
 		}

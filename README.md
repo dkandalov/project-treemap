@@ -59,4 +59,4 @@ How to use?
  - install [intellij-eval](https://github.com/dkandalov/intellij_eval)
  - add and run this plugin (Plugins Tool Window -> Add -> Plugin from Git)
  - use alt+T to build/open treemap for current project
- - (in browser) click to go one level down, ctrl+click to go one level up
+ - (in browser) click to go one level down, alt+click to go one level up
