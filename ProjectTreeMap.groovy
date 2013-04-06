@@ -1,11 +1,14 @@
 import com.intellij.ide.BrowserUtil
+import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectRootManager
+import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.psi.*
 import http.SimpleHttpServer
+import org.jetbrains.annotations.Nullable
 
 import javax.swing.*
 
@@ -14,6 +17,8 @@ import static intellijeval.PluginUtil.*
 
 /**
  * What could be improved:
+ *  - !!! add listener to VirtualFileManager and track all changes to keep treemap up-to-date
+ *
  *  - open treemap based on currently selected item in project view or currently open file
  *  - ask whether to recalculate treemap (better calculate if it's null; have separate action to recalculate it)
  *
@@ -25,46 +30,73 @@ import static intellijeval.PluginUtil.*
  *  - break up classes into methods?
  */
 class ProjectTreeMap {
-	private static final Logger LOG = Logger.getInstance(ProjectTreeMap.class);
-
-	// TODO this should be a container per project
-	// TODO must be cached like http server is cached (otherwise it's not really cached)
-	private static Container treeMapRoot = null // TODO will it be GCed on plugin reload?
 
 	static initActions(String pluginPath) {
-		registerAction("ProjectTreeMap-Show", "alt T") { AnActionEvent event ->
-			ensureRootContainerInitialized(event.project) {
-				SimpleHttpServer server = restartHttpServer(pluginPath)
-				BrowserUtil.launchBrowser("http://localhost:${server.port}/treemap.html")
+		registerAction("ProjectTreeMap-Show", "alt T") { AnActionEvent actionEvent ->
+			def treeMapsToProject = getGlobalVar("treeMapsToProject", new WeakHashMap<Project, Container>())
+			def project = actionEvent.project
+			def treeMap = treeMapsToProject.get(project)
+
+			def showTreeMapInBrowser = {
+				ensureTreeMapRootInitialized(project, treeMap) { Container initializedTreeMap ->
+					treeMapsToProject.put(project, initializedTreeMap)
+
+					SimpleHttpServer server = restartHttpServer(pluginPath, initializedTreeMap)
+					BrowserUtil.launchBrowser("http://localhost:${server.port}/treemap.html")
+				}
 			}
+
+			JBPopupFactory.instance.createActionGroupPopup(
+					"Project TreeMap View",
+					new DefaultActionGroup().with {
+						add(new AnAction("Show in Browser") {
+							@Override void actionPerformed(AnActionEvent event) {
+								showTreeMapInBrowser()
+							}
+						})
+						add(new AnAction("Recalculate and Show in Browser") {
+							@Override void actionPerformed(AnActionEvent event) {
+								treeMapsToProject.remove(project)
+								showTreeMapInBrowser()
+							}
+							@Override void update(AnActionEvent event) { event.presentation.enabled = (treeMap != null) }
+						})
+						add(new AnAction("Remove From Cache") {
+							@Override void actionPerformed(AnActionEvent event) { treeMapsToProject.remove(project) }
+							@Override void update(AnActionEvent event) { event.presentation.enabled = (treeMap != null) }
+						})
+						it
+					},
+					actionEvent.dataContext,
+					JBPopupFactory.ActionSelectionAid.SPEEDSEARCH,
+					true
+			).showCenteredInCurrentWindow(project)
 		}
-		registerAction("ProjectTreeMap-RecalculateTree", "alt R") { AnActionEvent event ->
-			treeMapRoot = null
-			ensureRootContainerInitialized(event.project) {
-				show("Recalculated project tree map")
-			}
-		}
-		show("Registered ProjectTreeMap actions")
+		log("Registered ProjectTreeMap actions")
 	}
 
-	private static ensureRootContainerInitialized(Project project, Closure closure) {
-		if (treeMapRoot != null) return closure.call()
+	static <T> T getGlobalVar(String varName, @Nullable T initialValue) { // TODO move to intellij-eval
+		changeGlobalVar(varName, initialValue, {it})
+	}
+
+	private static ensureTreeMapRootInitialized(Project project, Container treeMap, Closure closure) {
+		if (treeMap != null) return closure.call(treeMap)
 
 		doInBackground("Building tree map index for project...", {
 				ApplicationManager.application.runReadAction {
 					try {
-						treeMapRoot = new PackageAndClassTreeBuilder(project).buildTree()
+						treeMap = new PackageAndClassTreeBuilder(project).buildTree()
 					} catch (Exception e) {
 						showInConsole(e, project)
 					}
 				}
-		}, closure)
+		}, { closure.call(treeMap) })
 	}
 
-	private static  SimpleHttpServer restartHttpServer(String pluginPath) {
+	private static SimpleHttpServer restartHttpServer(String pluginPath, Container treeMap) {
 		def server = restartHttpServer("ProjectTreeMap_HttpServer", pluginPath,
-				{ String requestURI -> new RequestHandler(treeMapRoot).handleRequest(requestURI) },
-				{ Exception e -> SwingUtilities.invokeLater { LOG.error("", e) } }
+				{ String requestURI -> new RequestHandler(treeMap).handleRequest(requestURI) },
+				{ Exception e -> SwingUtilities.invokeLater { log(e) } }
 		)
 		server
 	}
