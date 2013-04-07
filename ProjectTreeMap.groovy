@@ -3,6 +3,7 @@ import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.ui.popup.JBPopupFactory
@@ -86,6 +87,7 @@ class ProjectTreeMap {
 				ApplicationManager.application.runReadAction {
 					try {
 						treeMap = new PackageAndClassTreeBuilder(project).buildTree()
+					} catch (ProcessCanceledException ignored) {
 					} catch (Exception e) {
 						showInConsole(e, project)
 					}
