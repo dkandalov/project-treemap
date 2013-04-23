@@ -39,7 +39,7 @@ class ProjectTreeMap {
 			def thisProjectTreeMap = { treeMapsToProject.get(project) }
 
 			def showTreeMapInBrowser = {
-				ensureTreeMapRootInitialized(project, thisProjectTreeMap()) { Container treeMap ->
+				ensureTreeMapRootInitialized(project, thisProjectTreeMap.call()) { Container treeMap ->
 					treeMapsToProject.put(project, treeMap)
 
 					SimpleHttpServer server = restartHttpServer(pluginPath, treeMap)
