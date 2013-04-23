@@ -15,7 +15,6 @@ import javax.swing.*
 
 import static http.Util.restartHttpServer
 import static intellijeval.PluginUtil.*
-
 /**
  * What could be improved:
  *  - !!! add listener to VirtualFileManager and track all changes to keep treemap up-to-date
@@ -34,15 +33,16 @@ class ProjectTreeMap {
 
 	static initActions(String pluginPath) {
 		registerAction("ProjectTreeMap-Show", "alt T") { AnActionEvent actionEvent ->
-			def treeMapsToProject = getGlobalVar("treeMapsToProject", new WeakHashMap<Project, Container>())
 			def project = actionEvent.project
-			def treeMap = treeMapsToProject.get(project)
+
+			Map<Project, Container> treeMapsToProject = getGlobalVar("treeMapsToProject", new WeakHashMap<Project, Container>())
+			def thisProjectTreeMap = { treeMapsToProject.get(project) }
 
 			def showTreeMapInBrowser = {
-				ensureTreeMapRootInitialized(project, treeMap) { Container initializedTreeMap ->
-					treeMapsToProject.put(project, initializedTreeMap)
+				ensureTreeMapRootInitialized(project, thisProjectTreeMap()) { Container treeMap ->
+					treeMapsToProject.put(project, treeMap)
 
-					SimpleHttpServer server = restartHttpServer(pluginPath, initializedTreeMap)
+					SimpleHttpServer server = restartHttpServer(pluginPath, treeMap)
 					BrowserUtil.launchBrowser("http://localhost:${server.port}/treemap.html")
 				}
 			}
@@ -60,11 +60,11 @@ class ProjectTreeMap {
 								treeMapsToProject.remove(project)
 								showTreeMapInBrowser()
 							}
-							@Override void update(AnActionEvent event) { event.presentation.enabled = (treeMap != null) }
+							@Override void update(AnActionEvent event) { event.presentation.enabled = (thisProjectTreeMap() != null) }
 						})
 						add(new AnAction("Remove From Cache") {
 							@Override void actionPerformed(AnActionEvent event) { treeMapsToProject.remove(project) }
-							@Override void update(AnActionEvent event) { event.presentation.enabled = (treeMap != null) }
+							@Override void update(AnActionEvent event) { event.presentation.enabled = (thisProjectTreeMap() != null) }
 						})
 						it
 					},
