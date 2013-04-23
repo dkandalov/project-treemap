@@ -206,6 +206,7 @@ class ProjectTreeMap {
 	static class GenericClassEstimator {
 		int sizeOf(PsiClass psiClass) {
 			// TODO
+			if (psiClass.text == null) return 1
 			psiClass.text.split("\n").findAll{ it.trim() != "" }.size()
 		}
 	}
