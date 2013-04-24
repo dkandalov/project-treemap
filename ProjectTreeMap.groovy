@@ -37,6 +37,7 @@ class ProjectTreeMap {
 
 			Map<Project, Container> treeMapsToProject = getGlobalVar("treeMapsToProject", new WeakHashMap<Project, Container>())
 			def thisProjectTreeMap = { treeMapsToProject.get(project) }
+//			show(thisProjectTreeMap.call().toJSON()) TODO
 
 			def showTreeMapInBrowser = {
 				ensureTreeMapRootInitialized(project, thisProjectTreeMap.call()) { Container treeMap ->

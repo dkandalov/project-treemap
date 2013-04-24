@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+    <link type="text/css" rel="stylesheet" href="style.css"/>
+    <script type="text/javascript" src="d3/d3.js"></script>
+    <script type="text/javascript" src="d3/d3.layout.js"></script>
+    <style type="text/css">
+        .chart {
+            display: block;
+            margin: auto;
+            margin-top: 40px;
+        }
+
+        text {
+            font-size: 14px;
+        }
+
+        rect {
+            fill: none;
+        }
+    </style>
+</head>
+<body>
+<div id="body">
+    <div id="footer">
+        <div class="packageNameLabel"></div>
+        <div class="hint">click or alt-click to descend or ascend</div>
+    </div>
+</div>
+<script type="text/javascript">
+
+    var w = 1280 - 80,
+        h = 800 - 180,
+        x = d3.scale.linear().range([0, w]),
+        y = d3.scale.linear().range([0, h]),
+        color = d3.scale.category20c();
+
+    var treemap = d3.layout.treemap()
+                    .round(true)
+                    .size([w, h])
+                    .value(function(d) { return d.size; });
+
+    var svg = d3.select("#body").append("div")
+            .attr("class", "chart")
+            .style("width", w + "px")
+            .style("height", h + "px")
+            .append("svg:svg")
+            .attr("width", w)
+            .attr("height", h)
+            .append("svg:g")
+            .attr("transform", "translate(.5,.5)");
+
+
+    var root = JSON.parse('\
+            {"name": "", "size": "321", "children": [\
+                {"name": "intellij-eval-plugins/project-treemap", "size": "321", "hasChildren": true, "children": [\
+                    {"name": "intellij-eval-plugins/project-treemap/ooo", "size": "11", "hasChildren": false},\
+                    {"name": "intellij-eval-plugins/project-treemap/vvv", "size": "33", "hasChildren": false}\
+                ]},\
+                {"name": "intellij-eval-plugins/project-treemap00", "size": "123", "hasChildren": true}\
+            ]}\
+        ');
+    root["parent"] = root;
+    addReferencesToParent(root);
+
+    showTreemapForChildrenOf(root);
+
+    function showTreemapForChildrenOf(node) {
+        var shallowNode = copyWithoutChildrenOfChildren(node);
+        var nodes = treemap.nodes(shallowNode).filter(
+                // remove root node because it's visible in background
+                function(d) { return d != shallowNode; }
+        );
+
+        svg.selectAll("g").remove();
+
+        var cell = svg.selectAll("g")
+                .data(nodes)
+                .enter().append("svg:g")
+                .attr("class", "cell")
+                .attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; })
+                .on("click", function(d) {
+                    var shouldGoToParent = d3.event.altKey;
+                    if (shouldGoToParent) {
+                        showTreemapForChildrenOf(d.originalNode.parent.parent);
+                    } else if (d.hasChildren) {
+                        showTreemapForChildrenOf(d.originalNode);
+                    }
+                });
+
+        cell.append("svg:rect")
+                .attr("width", function(d) { return d.dx - 1; })
+                .attr("height", function(d) { return d.dy - 1; })
+                .style("fill", function(d) { return color(d.name); });
+
+        cell.append("svg:text")
+                .attr("x", function(d) { return d.dx / 2; })
+                .attr("y", function(d) { return d.dy / 2; })
+                .attr("dy", ".35em")
+                .attr("text-anchor", "middle")
+                .text(function(d) { return d.name; })
+                .style("opacity", function(d) { d.w = this.getComputedTextLength(); return d.dx > d.w ? 1 : 0; });
+
+        cell.append("svg:text")
+                .attr("x", function(d) { return d.dx / 2; })
+                .attr("y", function(d) { return d.dy / 2; })
+                .attr("dy", "1.75em")
+                .attr("text-anchor", "middle")
+                .text(function(d) { return "(" + d.size + ")"; })
+                .style("opacity", function(d) { return (d.dx > d.w && d.dy > 60) ? 0.5 : 0; }); // TODO hack "d.dy > 60"
+
+
+        d3.select(".packageNameLabel").text(formatForUI(shallowNode.name));
+    }
+
+    function copyWithoutChildrenOfChildren(node) {
+        var shallowCopyOfChildren = node.children.map(function (child) { return copyOf(child, []); });
+        return copyOf(node, shallowCopyOfChildren);
+    }
+
+    function copyOf(node, nodeChildren) {
+        return {
+            name: node.name,
+            size: node.size,
+            hasChildren: node.hasChildren,
+            children: nodeChildren,
+            originalNode: node
+        };
+    }
+
+    function addReferencesToParent(node) {
+        if (node["children"] != null) {
+            node.children.forEach(function(child) {
+                child["parent"] = node;
+                addReferencesToParent(child);
+            });
+        }
+    }
+
+    function formatForUI(packageName) {
+        if (packageName.indexOf(".") == 0) packageName = packageName.substr(1);
+        if (packageName == "") packageName = "[project root]";
+        return packageName;
+    }
+
+</script>
+</body>
+</html>
