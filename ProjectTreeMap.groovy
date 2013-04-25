@@ -2,7 +2,6 @@ import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectRootManager
@@ -86,15 +85,16 @@ class ProjectTreeMap {
 		if (treeMap != null) return closure.call(treeMap)
 
 		doInBackground("Building tree map index for project...", {
-				ApplicationManager.application.runReadAction {
-					try {
-						treeMap = new PackageAndClassTreeBuilder(project).buildTree()
-					} catch (ProcessCanceledException ignored) {
-					} catch (Exception e) {
-						log(e)
-						showInConsole(e, project)
-					}
-				}
+		  log("Started building treemap for ${project}")
+			try {
+				treeMap = new PackageAndClassTreeBuilder(project).buildTree()
+			} catch (ProcessCanceledException ignored) {
+			} catch (Exception e) {
+				log(e)
+				showInConsole(e, project)
+			} finally {
+				log("Finished building treemap for ${project}")
+			}
 		}, { closure.call(treeMap) })
 	}
 
@@ -173,24 +173,29 @@ class ProjectTreeMap {
 		}
 
 		public Container buildTree() {
-			def topLevelContainers = sourceRootsIn(project).collect {
-				convertToContainerHierarchy(it).withName(it.parent.name + "/" + it.name)
+			def topLevelContainers = sourceRootsIn(project).collect { root ->
+				String rootName = runReadAction{ (root.parent == null ? "" : root.parent.name) + "/" + root.name }
+				convertToContainerHierarchy(root).withName(rootName)
 			}
 			new Container("", topLevelContainers)
 		}
 
 		private static Collection<PsiDirectory> sourceRootsIn(Project project) {
-			def psiManager = PsiManager.getInstance(project)
-			ProjectRootManager.getInstance(project).contentSourceRoots.collect{ psiManager.findDirectory(it) }
+			runReadAction {
+				def psiManager = PsiManager.getInstance(project)
+				ProjectRootManager.getInstance(project).contentSourceRoots.collect{ psiManager.findDirectory(it) }
+			}
 		}
 
 		private static Container convertToContainerHierarchy(PsiDirectory directory) {
-			def directoryService = JavaDirectoryService.instance
-
-			def classes = { directoryService.getClasses(directory).collect{ convertToElement(it) } }
-			def packages = { directory.children.findAll{it instanceof PsiDirectory}.collect{ convertToContainerHierarchy(it) } }
-
-			new Container(directory.name, classes() + packages())
+			def classes = {
+				def directoryService = JavaDirectoryService.instance
+				runReadAction { directoryService.getClasses(directory).collect{ convertToElement(it) } }
+			}
+			def packages = {
+				runReadAction{ directory.children }.findAll{it instanceof PsiDirectory}.collect{ convertToContainerHierarchy(it as PsiDirectory) }
+			}
+			new Container(directory.name, (Collection) classes() + packages())
 		}
 
 		private static Container convertToElement(PsiClass psiClass) { new Container(psiClass.name, sizeOf(psiClass)) }
@@ -312,5 +317,8 @@ class ProjectTreeMap {
 	}
 }
 
-// this is an attempt to optimize groovy (e.g. not converting between arrays and collections)
+/**
+ * Marks optimized groovy code (e.g. don't convert between arrays and collections)
+ * (As a benchmark was used IntelliJ source code; takes ~1.5min)
+ */
 @interface Optimization {}
