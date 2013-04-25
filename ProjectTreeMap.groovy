@@ -187,15 +187,16 @@ class ProjectTreeMap {
 			}
 		}
 
-		private static Container convertToContainerHierarchy(PsiDirectory directory) {
-			def classes = {
-				def directoryService = JavaDirectoryService.instance
-				runReadAction { directoryService.getClasses(directory).collect{ convertToElement(it) } }
+		@Optimization private static Container convertToContainerHierarchy(PsiDirectory directory) {
+			def childContainers = []
+
+			def subDirectories = runReadAction {
+				JavaDirectoryService.instance.getClasses(directory).each{ childContainers.add(convertToElement(it)) }
+				directory.subdirectories
 			}
-			def packages = {
-				runReadAction{ directory.children }.findAll{it instanceof PsiDirectory}.collect{ convertToContainerHierarchy(it as PsiDirectory) }
-			}
-			new Container(directory.name, (Collection) classes() + packages())
+			subDirectories.each{ childContainers.add(convertToContainerHierarchy(it as PsiDirectory)) }
+
+			new Container(directory.name, childContainers)
 		}
 
 		private static Container convertToElement(PsiClass psiClass) { new Container(psiClass.name, sizeOf(psiClass)) }
