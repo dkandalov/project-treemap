@@ -53,13 +53,17 @@
 
 
     var root = JSON.parse('\
-            {"name": "", "size": "321", "children": [\
-                {"name": "intellij-eval-plugins/project-treemap", "size": "321", "hasChildren": true, "children": [\
-                    {"name": "intellij-eval-plugins/project-treemap/ooo", "size": "11", "hasChildren": false},\
-                    {"name": "intellij-eval-plugins/project-treemap/vvv", "size": "33", "hasChildren": false}\
-                ]},\
-                {"name": "intellij-eval-plugins/project-treemap00", "size": "123", "hasChildren": true}\
-            ]}\
+            {"name": "", "size": "327", "children": [\
+    {"name": "intellij-eval-plugins/project-treemap", "size": "327", "children": [\
+        {"name": "plugin", "size": "1", "children": [\
+        ]},\
+        {"name": "ProjectTreeMap", "size": "228", "children": [\
+        ]},\
+        {"name": "http", "size": "98", "children": [\
+            {"name": "Util", "size": "21", "children": [\
+            ]},\
+            {"name": "SimpleHttpServer", "size": "77", "children": [\
+            ]}]}]}]}\
         ');
     root["parent"] = root;
     addReferencesToParent(root);
@@ -84,7 +88,7 @@
                     var shouldGoToParent = d3.event.altKey;
                     if (shouldGoToParent) {
                         showTreemapForChildrenOf(d.originalNode.parent.parent);
-                    } else if (d.hasChildren) {
+                    } else if (d.originalNode.children.length > 0) {
                         showTreemapForChildrenOf(d.originalNode);
                     }
                 });
@@ -123,7 +127,6 @@
         return {
             name: node.name,
             size: node.size,
-            hasChildren: node.hasChildren,
             children: nodeChildren,
             originalNode: node
         };

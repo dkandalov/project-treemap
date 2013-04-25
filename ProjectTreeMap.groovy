@@ -9,7 +9,6 @@ import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.psi.*
 import http.SimpleHttpServer
-import org.jetbrains.annotations.Nullable
 
 import javax.swing.*
 
@@ -36,8 +35,7 @@ class ProjectTreeMap {
 			def project = actionEvent.project
 
 			Map<Project, Container> treeMapsToProject = getGlobalVar("treeMapsToProject", new WeakHashMap<Project, Container>())
-			def thisProjectTreeMap = { treeMapsToProject.get(project) }
-//			show(thisProjectTreeMap.call().toJSON()) TODO
+			def thisProjectTreeMap = { treeMapsToProject.get(project) } // TODO doesn't work after plugin reload
 
 			def showTreeMapInBrowser = {
 				ensureTreeMapRootInitialized(project, thisProjectTreeMap.call()) { Container treeMap ->
@@ -67,6 +65,13 @@ class ProjectTreeMap {
 							@Override void actionPerformed(AnActionEvent event) { treeMapsToProject.remove(project) }
 							@Override void update(AnActionEvent event) { event.presentation.enabled = (thisProjectTreeMap() != null) }
 						})
+						add(new AnAction("Save to file as json") {
+							@Override void actionPerformed(AnActionEvent event) {
+								new File("treemap.json").write(thisProjectTreeMap.call().wholeTreeToJSON())
+								show("saved")
+							}
+							@Override void update(AnActionEvent event) { event.presentation.enabled = (thisProjectTreeMap() != null) }
+						})
 						it
 					},
 					actionEvent.dataContext,
@@ -75,10 +80,6 @@ class ProjectTreeMap {
 			).showCenteredInCurrentWindow(project)
 		}
 		log("Registered ProjectTreeMap actions")
-	}
-
-	static <T> T getGlobalVar(String varName, @Nullable T initialValue) { // TODO move to intellij-eval
-		changeGlobalVar(varName, initialValue, {it})
 	}
 
 	private static ensureTreeMapRootInitialized(Project project, Container treeMap, Closure closure) {
@@ -90,6 +91,7 @@ class ProjectTreeMap {
 						treeMap = new PackageAndClassTreeBuilder(project).buildTree()
 					} catch (ProcessCanceledException ignored) {
 					} catch (Exception e) {
+						log(e)
 						showInConsole(e, project)
 					}
 				}
@@ -182,7 +184,7 @@ class ProjectTreeMap {
 			ProjectRootManager.getInstance(project).contentSourceRoots.collect{ psiManager.findDirectory(it) }
 		}
 
-		private static def convertToContainerHierarchy(PsiDirectory directory) {
+		private static Container convertToContainerHierarchy(PsiDirectory directory) {
 			def directoryService = JavaDirectoryService.instance
 
 			def classes = { directoryService.getClasses(directory).collect{ convertToElement(it) } }
@@ -229,9 +231,15 @@ class ProjectTreeMap {
 			amountOfStatements +
 			psiClass.fields.size() +
 			psiClass.initializers.size() +
-			psiClass.constructors.sum(0){ sizeOfMethodDeclaration((PsiMethod) it) } +
-			psiClass.methods.sum(0){ sizeOfMethodDeclaration((PsiMethod) it) } +
-			psiClass.innerClasses.sum(0){ sizeOf((PsiClass) it) }
+			sum(psiClass.constructors, { sizeOfMethodDeclaration((PsiMethod) it) }) +
+			sum(psiClass.methods, { sizeOfMethodDeclaration((PsiMethod) it) }) +
+			sum(psiClass.innerClasses, { sizeOf((PsiClass) it) })
+		}
+
+		@Optimization private static int sum(Object[] array, Closure closure) {
+			int sum = 0
+			for (object in array) sum += closure(object)
+			sum
 		}
 
 		private static int sizeOfMethodDeclaration(PsiMethod psiMethod) { 1 + psiMethod.parameterList.parametersCount }
@@ -239,15 +247,15 @@ class ProjectTreeMap {
 
 	static class Container {
 		final String name
-		final Container[] children
+		final Collection<Container> children
 		final int size
 		private Container parent = null
 
 		Container(String name, Collection<Container> children) {
-			this(name, (Container[]) children.toArray(), sumOfChildrenSizes(children))
+			this(name, children, sumOfChildrenSizes(children))
 		}
 
-		Container(String name, Container[] children = new Container[0], int size) {
+		Container(String name, Collection<Container> children = new ArrayList(), int size) {
 			this.name = name
 			this.children = children.findAll{ it.size > 0 }
 			this.size = size
@@ -259,8 +267,7 @@ class ProjectTreeMap {
 			new Container(newName, children, size)
 		}
 
-		static int sumOfChildrenSizes(Collection<Container> children) {
-			// this is an attempt to optimize groovy by not using .sum(Closure) method
+		@Optimization static int sumOfChildrenSizes(Collection<Container> children) {
 			int sum = 0
 			for (Container child in children) sum += child.size
 			sum
@@ -275,11 +282,21 @@ class ProjectTreeMap {
 			else parent.fullName + "." + name
 		}
 
-		String toJSON(int level = 0) {
+		String wholeTreeToJSON() {
+			String childrenAsJSON = "\"children\": [\n" + children.collect { it.wholeTreeToJSON() }.join(',\n') + "]"
+
+			"{" +
+			"\"name\": \"$name\", " +
+			"\"size\": \"$size\", " +
+			childrenAsJSON +
+			"}"
+		}
+
+		String toJSON(int maxDepth = 1, int level = 0) {
 			String childrenAsJSON
 			String jsonName
-			if (level == 0) {
-				childrenAsJSON = "\"children\": [\n" + children.collect { it.toJSON(level + 1) }.join(',\n') + "]"
+			if (level < maxDepth) {
+				childrenAsJSON = "\"children\": [\n" + children.collect { it.toJSON(maxDepth, level + 1) }.join(',\n') + "]"
 				jsonName = fullName
 			} else {
 				childrenAsJSON = "\"hasChildren\": " + (children.size() > 0 ? "true" : "false")
@@ -294,3 +311,6 @@ class ProjectTreeMap {
 		}
 	}
 }
+
+// this is an attempt to optimize groovy (e.g. not converting between arrays and collections)
+@interface Optimization {}
