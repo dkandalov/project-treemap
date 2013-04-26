@@ -6,6 +6,7 @@ import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.ui.popup.JBPopupFactory
+import com.intellij.openapi.util.io.FileUtil
 import com.intellij.psi.*
 import http.SimpleHttpServer
 
@@ -18,7 +19,6 @@ import static intellijeval.PluginUtil.*
  *  - !!! add listener to VirtualFileManager and track all changes to keep treemap up-to-date
  *
  *  - open treemap based on currently selected item in project view or currently open file
- *  - ask whether to recalculate treemap (better calculate if it's null; have separate action to recalculate it)
  *
  *  - popup hints for small rectangles in treemap (otherwise it's impossible to read package/class name)
  *  - make sure it works with multiple projects (per-project treemap cache)
@@ -39,9 +39,15 @@ class ProjectTreeMap {
 			def showTreeMapInBrowser = {
 				ensureTreeMapRootInitialized(project, thisProjectTreeMap.call()) { Container treeMap ->
 					treeMapsToProject.put(project, treeMap)
-
-					SimpleHttpServer server = restartHttpServer(pluginPath, treeMap)
+					SimpleHttpServer server = loadIntoHttpServer(pluginPath, treeMap)
 					BrowserUtil.launchBrowser("http://localhost:${server.port}/treemap.html")
+				}
+			}
+			def showTreeMapInBrowser_SelfContained = {
+				ensureTreeMapRootInitialized(project, thisProjectTreeMap.call()) { Container treeMap ->
+					treeMapsToProject.put(project, treeMap)
+					SimpleHttpServer server = loadIntoHttpServer(project.name, pluginPath + "/http", treeMap.wholeTreeToJSON())
+					BrowserUtil.launchBrowser("http://localhost:${server.port}/treemap2.html")
 				}
 			}
 
@@ -51,6 +57,11 @@ class ProjectTreeMap {
 						add(new AnAction("Show in Browser") {
 							@Override void actionPerformed(AnActionEvent event) {
 								showTreeMapInBrowser()
+							}
+						})
+						add(new AnAction("Show in Browser (Self-contained)") {
+							@Override void actionPerformed(AnActionEvent event) {
+								showTreeMapInBrowser_SelfContained()
 							}
 						})
 						add(new AnAction("Recalculate and Show in Browser") {
@@ -98,8 +109,19 @@ class ProjectTreeMap {
 		}, { closure.call(treeMap) })
 	}
 
-	private static SimpleHttpServer restartHttpServer(String pluginPath, Container treeMap) {
-		def server = restartHttpServer("ProjectTreeMap_HttpServer", pluginPath,
+	private static SimpleHttpServer loadIntoHttpServer(String projectId, String pathToHttpFiles, String json) {
+		// TODO use json to fill html template
+		def tempDir = FileUtil.createTempDirectory(projectId + "_", "_treemap")
+		FileUtil.copyDirContent(new File(pathToHttpFiles), tempDir)
+		show(tempDir.absolutePath)
+		restartHttpServer(projectId, tempDir.absolutePath, {
+			log(it)
+			null
+		}, {log(it)})
+	}
+
+	private static SimpleHttpServer loadIntoHttpServer(String webRootPath, Container treeMap) {
+		def server = restartHttpServer("ProjectTreeMap_HttpServer", webRootPath + "/http",
 				{ String requestURI -> new RequestHandler(treeMap).handleRequest(requestURI) },
 				{ Exception e -> SwingUtilities.invokeLater { log(e) } }
 		)

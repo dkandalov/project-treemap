@@ -13,11 +13,11 @@ class SimpleHttpServer {
 	int port
 	private HttpServer server
 
-	void start(int port = 8100, String pluginPath, Closure handler = {null}, Closure errorListener = {}) {
+	void start(int port = 8100, String webRootPath, Closure handler = {null}, Closure errorListener = {}) {
 		this.port = port
 
 		server = HttpServer.create(new InetSocketAddress(port), 0)
-		server.createContext("/", new MyHandler(pluginPath, handler, errorListener))
+		server.createContext("/", new MyHandler(webRootPath, handler, errorListener))
 		server.executor = Executors.newCachedThreadPool()
 		server.start()
 	}
@@ -29,10 +29,10 @@ class SimpleHttpServer {
 	private static class MyHandler implements HttpHandler {
 		private final Closure handler
 		private final Closure errorListener
-		private final String pluginPath
+		private final String webRootPath
 
-		MyHandler(String pluginPath, Closure handler, Closure errorListener) {
-			this.pluginPath = pluginPath
+		MyHandler(String webRootPath, Closure handler, Closure errorListener) {
+			this.webRootPath = webRootPath
 			this.handler = handler
 			this.errorListener = errorListener
 		}
@@ -44,7 +44,7 @@ class SimpleHttpServer {
 					if (handlerResponse != null) {
 						replyWithText(handlerResponse.toString())
 					} else if (requestURI.startsWith("/") && requestURI.size() > 1) {
-						def file = new File(this.pluginPath + "/http" + "${requestURI.toString()}")
+						def file = new File(this.webRootPath + "${requestURI.toString()}")
 						if (!file.exists()) {
 							replyNotFound()
 						} else {
@@ -55,7 +55,7 @@ class SimpleHttpServer {
 					}
 				} catch (Exception e) {
 					replyWithException(e)
-//					errorListener.call(e)
+					errorListener.call(e)
 				}
 			}
 		}
