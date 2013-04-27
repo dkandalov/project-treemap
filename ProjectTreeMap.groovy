@@ -10,11 +10,11 @@ import com.intellij.openapi.util.io.FileUtil
 import com.intellij.psi.*
 import http.SimpleHttpServer
 
-import javax.swing.*
 import java.util.regex.Matcher
 
 import static http.Util.restartHttpServer
 import static intellijeval.PluginUtil.*
+
 /**
  * What could be improved:
  *  - !!! add listener to VirtualFileManager and track all changes to keep treemap up-to-date
@@ -37,13 +37,6 @@ class ProjectTreeMap {
 			Map<Project, Container> treeMapsToProject = getGlobalVar("treeMapsToProject", new WeakHashMap<Project, Container>())
 			def thisProjectTreeMap = { treeMapsToProject.get(project) } // TODO doesn't work after plugin reload
 
-			def showTreeMapInBrowser = {
-				whenTreeMapRootInitialized(project, thisProjectTreeMap.call()) { Container treeMap ->
-					treeMapsToProject.put(project, treeMap)
-					SimpleHttpServer server = loadIntoHttpServer(pluginPath, treeMap)
-					BrowserUtil.launchBrowser("http://localhost:${server.port}/treemap.html")
-				}
-			}
 			def showTreeMapInBrowser_SelfContained = {
 				whenTreeMapRootInitialized(project, thisProjectTreeMap.call()) { Container treeMap ->
 					treeMapsToProject.put(project, treeMap)
@@ -57,18 +50,13 @@ class ProjectTreeMap {
 					new DefaultActionGroup().with {
 						add(new AnAction("Show in Browser") {
 							@Override void actionPerformed(AnActionEvent event) {
-								showTreeMapInBrowser()
-							}
-						})
-						add(new AnAction("Show in Browser (Self-contained)") {
-							@Override void actionPerformed(AnActionEvent event) {
 								showTreeMapInBrowser_SelfContained()
 							}
 						})
 						add(new AnAction("Recalculate and Show in Browser") {
 							@Override void actionPerformed(AnActionEvent event) {
 								treeMapsToProject.remove(project)
-								showTreeMapInBrowser()
+								showTreeMapInBrowser_SelfContained()
 							}
 							@Override void update(AnActionEvent event) { event.presentation.enabled = (thisProjectTreeMap() != null) }
 						})
@@ -115,85 +103,15 @@ class ProjectTreeMap {
 		FileUtil.copyDirContent(new File(pathToHttpFiles), tempDir)
 		fillTemplate("$pathToHttpFiles/treemap_template.html", json, tempDir.absolutePath + "/treemap.html")
 
-		log(tempDir.absolutePath)
+		log("Saved tree map into: " + tempDir.absolutePath)
 
-		restartHttpServer(projectId, tempDir.absolutePath, {
-			log(it)
-			null
-		}, {log(it)})
+		restartHttpServer(projectId, tempDir.absolutePath, {null}, {log(it)})
 	}
 
 	private static void fillTemplate(String template, String jsValue, String pathToNewFile) {
 		def templateText = new File(template).readLines().join("\n")
 		def text = templateText.replaceFirst(/(?s)\/\*data_placeholder\*\/.*\/\*data_placeholder\*\//, Matcher.quoteReplacement(jsValue))
 		new File(pathToNewFile).write(text)
-	}
-
-	private static SimpleHttpServer loadIntoHttpServer(String webRootPath, Container treeMap) {
-		def server = restartHttpServer("ProjectTreeMap_HttpServer", webRootPath + "/http",
-				{ String requestURI -> new RequestHandler(treeMap).handleRequest(requestURI) },
-				{ Exception e -> SwingUtilities.invokeLater { log(e) } }
-		)
-		server
-	}
-
-	static class RequestHandler {
-		private final boolean skipEmptyMiddlePackages
-		private final Container rootContainer
-
-		RequestHandler(Container rootContainer, boolean skipEmptyMiddlePackages = true) {
-			this.rootContainer = rootContainer
-			this.skipEmptyMiddlePackages = skipEmptyMiddlePackages
-		}
-
-		String handleRequest(String requestURI) {
-			if (!requestURI.endsWith(".json")) return
-
-			def containerRequest = requestURI.replace(".json", "").replaceFirst("/", "")
-
-			Container container
-			if (containerRequest == "") {
-				container = rootContainer
-			} else if (containerRequest.startsWith("parent-of/")) {
-				containerRequest = containerRequest.replaceFirst("parent-of/", "")
-				List<String> path = splitName(containerRequest)
-				container = findContainer(path, rootContainer).parent
-
-				if (skipEmptyMiddlePackages) {
-					while (container != null && container != rootContainer && container.children.size() == 1)
-						container = container.parent
-				}
-				if (container == null) container = rootContainer
-			} else {
-				List<String> path = splitName(containerRequest)
-				container = findContainer(path, rootContainer)
-				if (skipEmptyMiddlePackages) {
-					while (container.children.size() == 1 && container.children.first().children.size() > 0)
-						container = container.children.first()
-				}
-			}
-			container?.toJSON()
-		}
-
-		private static List<String> splitName(String containerFullName) {
-			def namesList = containerFullName.split(/\./).toList()
-			if (namesList.size() > 0 && namesList.first() != "") {
-				// this is because for "" split returns [""] but for "foo" returns ["foo"], i.e. list without first ""
-				namesList.add(0, "")
-			}
-			namesList
-		}
-
-		private static Container findContainer(List path, Container container) {
-			if (container == null || path.empty || path.first() != container.name) return null
-			if (path.size() == 1 && path.first() == container.name) return container
-
-			for (child in container.children) {
-				def result = findContainer(path.tail(), child)
-				if (result != null) return result
-			}
-			null
-		}
 	}
 
 	static class PackageAndClassTreeBuilder {
@@ -286,7 +204,7 @@ class ProjectTreeMap {
 		final String name
 		final Collection<Container> children
 		final int size
-		private Container parent = null
+		Container parent = null
 
 		Container(String name, Collection<Container> children) {
 			this(name, children, sumOfChildrenSizes(children))
@@ -308,10 +226,6 @@ class ProjectTreeMap {
 			int sum = 0
 			for (Container child in children) sum += child.size
 			sum
-		}
-
-		Container getParent() {
-			this.parent
 		}
 
 		private String getFullName() {
