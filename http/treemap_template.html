@@ -70,7 +70,10 @@
     var root = /*data_placeholder*/
             {"name": "", "size": "327", "children": [
                 {"name": "intellij-eval-plugins/project-treemap", "size": "327", "children": [
-                    {"name": "plugin", "size": "2", "children": []},
+                    {"name": "plugin", "size": "2", "children": [
+                        {"name": "plugin2", "size": "2", "children": []},
+                        {"name": "plugin2", "size": "2", "children": []}
+                    ]},
                     {"name": "plugin2", "size": "2", "children": []},
                     {"name": "plugin2", "size": "2", "children": []},
                     {"name": "plugin2", "size": "2", "children": []},
@@ -107,7 +110,7 @@
                 .append("svg:g");
 
         var footer = d3.select("#" + elementId).append("div").attr("id", "footer");
-        var packageNameLabel = footer.append("div").attr("class", "packageNameLabel");
+        var packageNameLabel = footer.append("div");
         footer.append("div").attr("class", "hint").html("click or alt-click to descend or ascend");
 
 
@@ -140,6 +143,8 @@
                     .attr("class", "cell")
                     .attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; })
                     .on("click", function(d) {
+                        tooltip.style("opacity", .0);
+
                         var shouldGoToParent = d3.event.altKey;
                         if (shouldGoToParent) {
                             showTreemapForChildrenOf(d.originalNode.parent.parent);
