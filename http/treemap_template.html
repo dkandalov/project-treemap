@@ -116,7 +116,8 @@
 
         var tooltip = d3.select("#" + elementId).append("div")
                 .attr("class", "tooltip")
-                .style("opacity", 0);
+                .style("opacity", 0.9)
+                .style("visibility", "hidden");
 
         var treemap = d3.layout.treemap()
                 .round(true)
@@ -143,7 +144,7 @@
                     .attr("class", "cell")
                     .attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; })
                     .on("click", function(d) {
-                        tooltip.style("opacity", .0);
+                        tooltip.style("visibility", "hidden");
 
                         var shouldGoToParent = d3.event.altKey;
                         if (shouldGoToParent) {
@@ -160,7 +161,7 @@
                     .on("mouseover", function(d) {
                         if (d.hasLabel) return;
                         tooltip.html(d.name + "<br/>(" + d.size + ")")
-                                .style("opacity", .9)
+                                .style("visibility", "visible")
                                 .style("height", "auto")
                                 .style("position", "absolute")
                                 .style("left", (getPos(chart[0][0]).x + d.x + (d.dx / 2) - (tooltip[0][0].offsetWidth / 2)) + "px")
@@ -168,7 +169,7 @@
                     })
                     .on("mouseout", function(d) {
                         if (d.hasLabel) return;
-                        tooltip.style("opacity", .0);
+                        tooltip.style("visibility", "hidden");
                     });
 
             var rememberIfLabelVisible = function (rect, textFits) {
@@ -211,7 +212,7 @@
                 y += element.offsetTop;
                 element = element.offsetParent;
             }
-            return {x: x,y: y};
+            return {x: x, y: y};
         }
 
         function textFitsInto(rect, extent) {
