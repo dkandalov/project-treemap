@@ -36,10 +36,6 @@
 <body>
 <div id="body">
     <span id="size-of-packages-treemap"></span>
-    <div id="footer">
-        <div class="packageNameLabel"></div>
-        <div class="hint">click or alt-click to descend or ascend</div>
-    </div>
 </div>
 <script type="text/javascript">
     var root = /*data_placeholder*/
@@ -72,11 +68,6 @@
             y = d3.scale.linear().range([0, h]),
             color = d3.scale.category20c();
 
-        // TODO use element id instead of "body"
-        var treemap = d3.layout.treemap()
-                .round(true)
-                .size([w, h])
-                .value(function(d) { return d.size; });
         var chart = d3.select("#" + elementId).append("div")
                 .attr("class", "chart")
                 .style("width", w + "px")
@@ -86,9 +77,19 @@
                 .attr("height", h)
                 .append("svg:g");
 
+        var footer = d3.select("#" + elementId).append("div").attr("id", "footer");
+        var packageNameLabel = footer.append("div").attr("class", "packageNameLabel");
+        footer.append("div").attr("class", "hint").html("click or alt-click to descend or ascend");
+
+
         var tooltip = d3.select("#" + elementId).append("div")
                 .attr("class", "tooltip")
                 .style("opacity", 0);
+
+        var treemap = d3.layout.treemap()
+                .round(true)
+                .size([w, h])
+                .value(function(d) { return d.size; });
 
         root["parent"] = root;
         addReferencesToParent(root);
@@ -167,7 +168,7 @@
                     });
 
 
-            d3.select(".packageNameLabel").text(formatPackageName(fullNameOf(node)));
+            packageNameLabel.text(formatPackageName(fullNameOf(node)));
         }
 
         function getPos(element) {
