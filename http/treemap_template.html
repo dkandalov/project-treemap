@@ -54,17 +54,16 @@
 
     var root = /*data_placeholder*/
             {"name": "", "size": "327", "children": [
-    {"name": "intellij-eval-plugins/project-treemap", "size": "327", "children": [
-        {"name": "plugin", "size": "1", "children": [
-        ]},
-        {"name": "ProjectTreeMap", "size": "228", "children": [
-        ]},
-        {"name": "http", "size": "98", "children": [
-            {"name": "Util", "size": "21", "children": [
-            ]},
-            {"name": "SimpleHttpServer", "size": "77", "children": [
-            ]}]}]}]}
-        /*data_placeholder*/;
+                {"name": "intellij-eval-plugins/project-treemap", "size": "327", "children": [
+                    {"name": "plugin", "size": "2", "children": []},
+                    {"name": "ProjectTreeMap", "size": "1228", "children": []},
+                    {"name": "http", "size": "198", "children": [
+                        {"name": "Util", "size": "21", "children": []},
+                        {"name": "SimpleHttpServer", "size": "77", "children": []}
+                    ]}
+                ]}
+            ]}
+    /*data_placeholder*/;
     root["parent"] = root;
     addReferencesToParent(root);
 
@@ -104,7 +103,7 @@
                 .attr("dy", ".35em")
                 .attr("text-anchor", "middle")
                 .text(function(d) { return d.name; })
-                .style("opacity", function(d) { d.w = this.getComputedTextLength(); return d.dx > d.w ? 1 : 0; });
+                .style("opacity", function(d) { return textFitsIntoRect(d, this.getExtentOfChar()) ? 1 : 0; });
 
         cell.append("svg:text")
                 .attr("x", function(d) { return d.dx / 2; })
@@ -112,10 +111,14 @@
                 .attr("dy", "1.75em")
                 .attr("text-anchor", "middle")
                 .text(function(d) { return "(" + d.size + ")"; })
-                .style("opacity", function(d) { return (d.dx > d.w && d.dy > 60) ? 0.5 : 0; }); // TODO hack "d.dy > 60"
+                .style("opacity", function(d) { return textFitsIntoRect(d, this.getExtentOfChar()) ? 0.5 : 0; });
 
 
         d3.select(".packageNameLabel").text(formatPackageName(fullNameOf(node)));
+    }
+
+    function textFitsIntoRect(rect, extent) {
+        return rect.dx > extent.width && rect.dy > extent.height;
     }
 
     function copyWithoutChildrenOfChildren(node) {
