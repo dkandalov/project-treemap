@@ -115,7 +115,7 @@
                 .style("opacity", function(d) { return (d.dx > d.w && d.dy > 60) ? 0.5 : 0; }); // TODO hack "d.dy > 60"
 
 
-        d3.select(".packageNameLabel").text(formatForUI(shallowNode.name));
+        d3.select(".packageNameLabel").text(formatPackageName(fullNameOf(node)));
     }
 
     function copyWithoutChildrenOfChildren(node) {
@@ -141,10 +141,15 @@
         }
     }
 
-    function formatForUI(packageName) {
-        if (packageName.indexOf(".") == 0) packageName = packageName.substr(1);
-        if (packageName == "") packageName = "[project root]";
-        return packageName;
+    function fullNameOf(node) {
+        if (node.parent == node) return node.name;
+        else return fullNameOf(node.parent) + "." + node.name;
+    }
+
+    function formatPackageName(packageName) {
+        if (packageName.indexOf(".") == 0) return packageName.substr(1);
+        else if (packageName == "") return "[project root]";
+        else return packageName;
     }
 
 </script>
