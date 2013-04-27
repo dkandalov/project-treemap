@@ -19,6 +19,18 @@
         rect {
             fill: none;
         }
+
+        div.tooltip {
+            position: absolute;
+            text-align: center;
+            height: 15px;
+            padding: 5px;
+            font: 12px sans-serif;
+            background: lightsteelblue;
+            border: 0;
+            border-radius: 8px;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -36,26 +48,37 @@
         y = d3.scale.linear().range([0, h]),
         color = d3.scale.category20c();
 
+    // TODO use element id instead of "body"
     var treemap = d3.layout.treemap()
                     .round(true)
                     .size([w, h])
                     .value(function(d) { return d.size; });
-
-    var svg = d3.select("#body").append("div")
+    var chart = d3.select("#body").append("div")
             .attr("class", "chart")
             .style("width", w + "px")
-            .style("height", h + "px")
-            .append("svg:svg")
+            .style("height", h + "px");
+    var svg = chart.append("svg:svg")
             .attr("width", w)
             .attr("height", h)
-            .append("svg:g")
-            .attr("transform", "translate(.5,.5)");
+            .append("svg:g");
+
+    var tooltip = d3.select("#body").append("div")
+            .attr("class", "tooltip")
+            .style("opacity", 0);
 
 
     var root = /*data_placeholder*/
             {"name": "", "size": "327", "children": [
                 {"name": "intellij-eval-plugins/project-treemap", "size": "327", "children": [
                     {"name": "plugin", "size": "2", "children": []},
+                    {"name": "plugin2", "size": "2", "children": []},
+                    {"name": "plugin2", "size": "2", "children": []},
+                    {"name": "plugin2", "size": "2", "children": []},
+                    {"name": "plugin2", "size": "2", "children": []},
+                    {"name": "plugin2", "size": "2", "children": []},
+                    {"name": "plugin2", "size": "2", "children": []},
+                    {"name": "plugin2", "size": "2", "children": []},
+                    {"name": "plugin2", "size": "2", "children": []},
                     {"name": "ProjectTreeMap", "size": "1228", "children": []},
                     {"name": "http", "size": "198", "children": [
                         {"name": "Util", "size": "21", "children": []},
@@ -95,7 +118,29 @@
         cell.append("svg:rect")
                 .attr("width", function(d) { return d.dx - 1; })
                 .attr("height", function(d) { return d.dy - 1; })
-                .style("fill", function(d) { return color(d.name); });
+                .style("fill", function(d) { return color(d.name); })
+                .on("mouseover", function(d) {
+                    if (d.hasLabel) return;
+                    tooltip.html(d.name + "<br/>(" + d.size + ")")
+                            .style("opacity", .9)
+                            .style("height", "auto")
+                            .style("position", "absolute")
+                            .style("left", (getPos(chart[0][0]).x + d.x + (d.dx / 2) - (tooltip[0][0].offsetWidth / 2)) + "px")
+                            .style("top", (getPos(chart[0][0]).y + d.y + (d.dy / 2) - (tooltip[0][0].offsetHeight / 2)) + "px");
+                })
+                .on("mouseout", function(d) {
+                    if (d.hasLabel) return;
+                    tooltip.style("opacity", .0);
+                });
+
+        var rememberIfLabelVisible = function (rect, textFits) {
+            if (!textFits) {
+                rect.hasLabel = false;
+            } else if (rect.hasLabel == null) {
+                rect.hasLabel = true;
+            }
+            return textFits;
+        };
 
         cell.append("svg:text")
                 .attr("x", function(d) { return d.dx / 2; })
@@ -103,7 +148,9 @@
                 .attr("dy", ".35em")
                 .attr("text-anchor", "middle")
                 .text(function(d) { return d.name; })
-                .style("opacity", function(d) { return textFitsIntoRect(d, this.getExtentOfChar()) ? 1 : 0; });
+                .style("visibility", function(d) {
+                    return rememberIfLabelVisible(d, textFitsInto(d, this)) ? "visible" : "hidden";
+                });
 
         cell.append("svg:text")
                 .attr("x", function(d) { return d.dx / 2; })
@@ -111,14 +158,25 @@
                 .attr("dy", "1.75em")
                 .attr("text-anchor", "middle")
                 .text(function(d) { return "(" + d.size + ")"; })
-                .style("opacity", function(d) { return textFitsIntoRect(d, this.getExtentOfChar()) ? 0.5 : 0; });
+                .style("opacity", "0.5")
+                .style("visibility", function(d) {
+                    return rememberIfLabelVisible(d, textFitsInto(d, this)) ? "visible" : "hidden";
+                });
 
 
         d3.select(".packageNameLabel").text(formatPackageName(fullNameOf(node)));
     }
 
-    function textFitsIntoRect(rect, extent) {
-        return rect.dx > extent.width && rect.dy > extent.height;
+    function getPos(el) {
+        // yay readability
+        for (var lx=0, ly=0;
+             el != null;
+             lx += el.offsetLeft, ly += el.offsetTop, el = el.offsetParent);
+        return {x: lx,y: ly};
+    }
+
+    function textFitsInto(rect, extent) {
+        return rect.dx > extent.getComputedTextLength() && rect.dy > extent.getExtentOfChar().height;
     }
 
     function copyWithoutChildrenOfChildren(node) {
