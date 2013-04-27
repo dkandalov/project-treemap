@@ -35,38 +35,13 @@
 </head>
 <body>
 <div id="body">
+    <span id="size-of-packages-treemap"></span>
     <div id="footer">
         <div class="packageNameLabel"></div>
         <div class="hint">click or alt-click to descend or ascend</div>
     </div>
 </div>
 <script type="text/javascript">
-
-    var w = 1280 - 80,
-        h = 800 - 180,
-        x = d3.scale.linear().range([0, w]),
-        y = d3.scale.linear().range([0, h]),
-        color = d3.scale.category20c();
-
-    // TODO use element id instead of "body"
-    var treemap = d3.layout.treemap()
-                    .round(true)
-                    .size([w, h])
-                    .value(function(d) { return d.size; });
-    var chart = d3.select("#body").append("div")
-            .attr("class", "chart")
-            .style("width", w + "px")
-            .style("height", h + "px");
-    var svg = chart.append("svg:svg")
-            .attr("width", w)
-            .attr("height", h)
-            .append("svg:g");
-
-    var tooltip = d3.select("#body").append("div")
-            .attr("class", "tooltip")
-            .style("opacity", 0);
-
-
     var root = /*data_placeholder*/
             {"name": "", "size": "327", "children": [
                 {"name": "intellij-eval-plugins/project-treemap", "size": "327", "children": [
@@ -87,131 +62,160 @@
                 ]}
             ]}
     /*data_placeholder*/;
-    root["parent"] = root;
-    addReferencesToParent(root);
 
-    showTreemapForChildrenOf(root);
+    createTreeMapOn("size-of-packages-treemap", root);
 
-    function showTreemapForChildrenOf(node) {
-        var shallowNode = copyWithoutChildrenOfChildren(node);
-        var nodes = treemap.nodes(shallowNode).filter(
-                // remove root node because it's visible in background
-                function(d) { return d != shallowNode; }
-        );
+    function createTreeMapOn(elementId, root) {
+        var w = 1280 - 80,
+            h = 800 - 180,
+            x = d3.scale.linear().range([0, w]),
+            y = d3.scale.linear().range([0, h]),
+            color = d3.scale.category20c();
 
-        svg.selectAll("g").remove();
+        // TODO use element id instead of "body"
+        var treemap = d3.layout.treemap()
+                .round(true)
+                .size([w, h])
+                .value(function(d) { return d.size; });
+        var chart = d3.select("#" + elementId).append("div")
+                .attr("class", "chart")
+                .style("width", w + "px")
+                .style("height", h + "px");
+        var svg = chart.append("svg:svg")
+                .attr("width", w)
+                .attr("height", h)
+                .append("svg:g");
 
-        var cell = svg.selectAll("g")
-                .data(nodes)
-                .enter().append("svg:g")
-                .attr("class", "cell")
-                .attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; })
-                .on("click", function(d) {
-                    var shouldGoToParent = d3.event.altKey;
-                    if (shouldGoToParent) {
-                        showTreemapForChildrenOf(d.originalNode.parent.parent);
-                    } else if (d.originalNode.children.length > 0) {
-                        showTreemapForChildrenOf(d.originalNode);
-                    }
-                });
+        var tooltip = d3.select("#" + elementId).append("div")
+                .attr("class", "tooltip")
+                .style("opacity", 0);
 
-        cell.append("svg:rect")
-                .attr("width", function(d) { return d.dx - 1; })
-                .attr("height", function(d) { return d.dy - 1; })
-                .style("fill", function(d) { return color(d.name); })
-                .on("mouseover", function(d) {
-                    if (d.hasLabel) return;
-                    tooltip.html(d.name + "<br/>(" + d.size + ")")
-                            .style("opacity", .9)
-                            .style("height", "auto")
-                            .style("position", "absolute")
-                            .style("left", (getPos(chart[0][0]).x + d.x + (d.dx / 2) - (tooltip[0][0].offsetWidth / 2)) + "px")
-                            .style("top", (getPos(chart[0][0]).y + d.y + (d.dy / 2) - (tooltip[0][0].offsetHeight / 2)) + "px");
-                })
-                .on("mouseout", function(d) {
-                    if (d.hasLabel) return;
-                    tooltip.style("opacity", .0);
-                });
+        root["parent"] = root;
+        addReferencesToParent(root);
 
-        var rememberIfLabelVisible = function (rect, textFits) {
-            if (!textFits) {
-                rect.hasLabel = false;
-            } else if (rect.hasLabel == null) {
-                rect.hasLabel = true;
+        showTreemapForChildrenOf(root);
+
+        function showTreemapForChildrenOf(node) {
+            var shallowNode = copyWithoutChildrenOfChildren(node);
+            var nodes = treemap.nodes(shallowNode).filter(
+                    // remove root node because it's visible in background
+                    function(d) { return d != shallowNode; }
+            );
+
+            svg.selectAll("g").remove();
+
+            var cell = svg.selectAll("g")
+                    .data(nodes)
+                    .enter().append("svg:g")
+                    .attr("class", "cell")
+                    .attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; })
+                    .on("click", function(d) {
+                        var shouldGoToParent = d3.event.altKey;
+                        if (shouldGoToParent) {
+                            showTreemapForChildrenOf(d.originalNode.parent.parent);
+                        } else if (d.originalNode.children.length > 0) {
+                            showTreemapForChildrenOf(d.originalNode);
+                        }
+                    });
+
+            cell.append("svg:rect")
+                    .attr("width", function(d) { return d.dx - 1; })
+                    .attr("height", function(d) { return d.dy - 1; })
+                    .style("fill", function(d) { return color(d.name); })
+                    .on("mouseover", function(d) {
+                        if (d.hasLabel) return;
+                        tooltip.html(d.name + "<br/>(" + d.size + ")")
+                                .style("opacity", .9)
+                                .style("height", "auto")
+                                .style("position", "absolute")
+                                .style("left", (getPos(chart[0][0]).x + d.x + (d.dx / 2) - (tooltip[0][0].offsetWidth / 2)) + "px")
+                                .style("top", (getPos(chart[0][0]).y + d.y + (d.dy / 2) - (tooltip[0][0].offsetHeight / 2)) + "px");
+                    })
+                    .on("mouseout", function(d) {
+                        if (d.hasLabel) return;
+                        tooltip.style("opacity", .0);
+                    });
+
+            var rememberIfLabelVisible = function (rect, textFits) {
+                if (!textFits) {
+                    rect.hasLabel = false;
+                } else if (rect.hasLabel == null) {
+                    rect.hasLabel = true;
+                }
+                return textFits;
+            };
+
+            cell.append("svg:text")
+                    .attr("x", function(d) { return d.dx / 2; })
+                    .attr("y", function(d) { return d.dy / 2; })
+                    .attr("dy", ".35em")
+                    .attr("text-anchor", "middle")
+                    .text(function(d) { return d.name; })
+                    .style("visibility", function(d) {
+                        return rememberIfLabelVisible(d, textFitsInto(d, this)) ? "visible" : "hidden";
+                    });
+
+            cell.append("svg:text")
+                    .attr("x", function(d) { return d.dx / 2; })
+                    .attr("y", function(d) { return d.dy / 2; })
+                    .attr("dy", "1.75em")
+                    .attr("text-anchor", "middle")
+                    .text(function(d) { return "(" + d.size + ")"; })
+                    .style("opacity", "0.5")
+                    .style("visibility", function(d) {
+                        return rememberIfLabelVisible(d, textFitsInto(d, this)) ? "visible" : "hidden";
+                    });
+
+
+            d3.select(".packageNameLabel").text(formatPackageName(fullNameOf(node)));
+        }
+
+        function getPos(element) {
+            for (var x = 0, y = 0; element != null;) {
+                x += element.offsetLeft;
+                y += element.offsetTop;
+                element = element.offsetParent;
             }
-            return textFits;
-        };
-
-        cell.append("svg:text")
-                .attr("x", function(d) { return d.dx / 2; })
-                .attr("y", function(d) { return d.dy / 2; })
-                .attr("dy", ".35em")
-                .attr("text-anchor", "middle")
-                .text(function(d) { return d.name; })
-                .style("visibility", function(d) {
-                    return rememberIfLabelVisible(d, textFitsInto(d, this)) ? "visible" : "hidden";
-                });
-
-        cell.append("svg:text")
-                .attr("x", function(d) { return d.dx / 2; })
-                .attr("y", function(d) { return d.dy / 2; })
-                .attr("dy", "1.75em")
-                .attr("text-anchor", "middle")
-                .text(function(d) { return "(" + d.size + ")"; })
-                .style("opacity", "0.5")
-                .style("visibility", function(d) {
-                    return rememberIfLabelVisible(d, textFitsInto(d, this)) ? "visible" : "hidden";
-                });
-
-
-        d3.select(".packageNameLabel").text(formatPackageName(fullNameOf(node)));
-    }
-
-    function getPos(element) {
-        for (var x = 0, y = 0; element != null;) {
-            x += element.offsetLeft;
-            y += element.offsetTop;
-            element = element.offsetParent;
+            return {x: x,y: y};
         }
-        return {x: x,y: y};
-    }
 
-    function textFitsInto(rect, extent) {
-        return rect.dx > extent.getComputedTextLength() && rect.dy > extent.getExtentOfChar().height;
-    }
-
-    function copyWithoutChildrenOfChildren(node) {
-        var shallowCopyOfChildren = node.children.map(function (child) { return copyOf(child, []); });
-        return copyOf(node, shallowCopyOfChildren);
-    }
-
-    function copyOf(node, nodeChildren) {
-        return {
-            name: node.name,
-            size: node.size,
-            children: nodeChildren,
-            originalNode: node
-        };
-    }
-
-    function addReferencesToParent(node) {
-        if (node["children"] != null) {
-            node.children.forEach(function(child) {
-                child["parent"] = node;
-                addReferencesToParent(child);
-            });
+        function textFitsInto(rect, extent) {
+            return rect.dx > extent.getComputedTextLength() && rect.dy > extent.getExtentOfChar().height;
         }
-    }
 
-    function fullNameOf(node) {
-        if (node.parent == node) return node.name;
-        else return fullNameOf(node.parent) + "." + node.name;
-    }
+        function copyWithoutChildrenOfChildren(node) {
+            var shallowCopyOfChildren = node.children.map(function (child) { return copyOf(child, []); });
+            return copyOf(node, shallowCopyOfChildren);
+        }
 
-    function formatPackageName(packageName) {
-        if (packageName.indexOf(".") == 0) return packageName.substr(1);
-        else if (packageName == "") return "[project root]";
-        else return packageName;
+        function copyOf(node, nodeChildren) {
+            return {
+                name: node.name,
+                size: node.size,
+                children: nodeChildren,
+                originalNode: node
+            };
+        }
+
+        function addReferencesToParent(node) {
+            if (node["children"] != null) {
+                node.children.forEach(function(child) {
+                    child["parent"] = node;
+                    addReferencesToParent(child);
+                });
+            }
+        }
+
+        function fullNameOf(node) {
+            if (node.parent == node) return node.name;
+            else return fullNameOf(node.parent) + "." + node.name;
+        }
+
+        function formatPackageName(packageName) {
+            if (packageName.indexOf(".") == 0) return packageName.substr(1);
+            else if (packageName == "") return "[project root]";
+            else return packageName;
+        }
     }
 
 </script>

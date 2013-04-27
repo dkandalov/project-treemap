@@ -21,8 +21,6 @@ import static intellijeval.PluginUtil.*
  *
  *  - open treemap based on currently selected item in project view or currently open file
  *
- *  - popup hints for small rectangles in treemap (otherwise it's impossible to read package/class name)
- *  - make sure it works with multiple projects (per-project treemap cache)
  *  - packages and classes should look differently in tree map (different color schemes? bold/bigger font for packages?)
  *  - clickable breadcrumbs (e.g. to quickly navigate several methods up)
  *  - reduce breadcrumbs font size when it doesn't fit on screen?
