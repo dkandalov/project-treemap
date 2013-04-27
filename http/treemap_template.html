@@ -167,12 +167,13 @@
         d3.select(".packageNameLabel").text(formatPackageName(fullNameOf(node)));
     }
 
-    function getPos(el) {
-        // yay readability
-        for (var lx=0, ly=0;
-             el != null;
-             lx += el.offsetLeft, ly += el.offsetTop, el = el.offsetParent);
-        return {x: lx,y: ly};
+    function getPos(element) {
+        for (var x = 0, y = 0; element != null;) {
+            x += element.offsetLeft;
+            y += element.offsetTop;
+            element = element.offsetParent;
+        }
+        return {x: x,y: y};
     }
 
     function textFitsInto(rect, extent) {
