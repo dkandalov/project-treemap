@@ -52,19 +52,19 @@
             .attr("transform", "translate(.5,.5)");
 
 
-    var root = JSON.parse('\
-            {"name": "", "size": "327", "children": [\
-    {"name": "intellij-eval-plugins/project-treemap", "size": "327", "children": [\
-        {"name": "plugin", "size": "1", "children": [\
-        ]},\
-        {"name": "ProjectTreeMap", "size": "228", "children": [\
-        ]},\
-        {"name": "http", "size": "98", "children": [\
-            {"name": "Util", "size": "21", "children": [\
-            ]},\
-            {"name": "SimpleHttpServer", "size": "77", "children": [\
-            ]}]}]}]}\
-        ');
+    var root = /*data_placeholder*/
+            {"name": "", "size": "327", "children": [
+    {"name": "intellij-eval-plugins/project-treemap", "size": "327", "children": [
+        {"name": "plugin", "size": "1", "children": [
+        ]},
+        {"name": "ProjectTreeMap", "size": "228", "children": [
+        ]},
+        {"name": "http", "size": "98", "children": [
+            {"name": "Util", "size": "21", "children": [
+            ]},
+            {"name": "SimpleHttpServer", "size": "77", "children": [
+            ]}]}]}]}
+        /*data_placeholder*/;
     root["parent"] = root;
     addReferencesToParent(root);
 

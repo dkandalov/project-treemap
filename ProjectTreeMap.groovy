@@ -11,6 +11,7 @@ import com.intellij.psi.*
 import http.SimpleHttpServer
 
 import javax.swing.*
+import java.util.regex.Matcher
 
 import static http.Util.restartHttpServer
 import static intellijeval.PluginUtil.*
@@ -37,17 +38,17 @@ class ProjectTreeMap {
 			def thisProjectTreeMap = { treeMapsToProject.get(project) } // TODO doesn't work after plugin reload
 
 			def showTreeMapInBrowser = {
-				ensureTreeMapRootInitialized(project, thisProjectTreeMap.call()) { Container treeMap ->
+				whenTreeMapRootInitialized(project, thisProjectTreeMap.call()) { Container treeMap ->
 					treeMapsToProject.put(project, treeMap)
 					SimpleHttpServer server = loadIntoHttpServer(pluginPath, treeMap)
 					BrowserUtil.launchBrowser("http://localhost:${server.port}/treemap.html")
 				}
 			}
 			def showTreeMapInBrowser_SelfContained = {
-				ensureTreeMapRootInitialized(project, thisProjectTreeMap.call()) { Container treeMap ->
+				whenTreeMapRootInitialized(project, thisProjectTreeMap.call()) { Container treeMap ->
 					treeMapsToProject.put(project, treeMap)
 					SimpleHttpServer server = loadIntoHttpServer(project.name, pluginPath + "/http", treeMap.wholeTreeToJSON())
-					BrowserUtil.launchBrowser("http://localhost:${server.port}/treemap2.html")
+					BrowserUtil.launchBrowser("http://localhost:${server.port}/treemap.html")
 				}
 			}
 
@@ -92,8 +93,8 @@ class ProjectTreeMap {
 		log("Registered ProjectTreeMap actions")
 	}
 
-	private static ensureTreeMapRootInitialized(Project project, Container treeMap, Closure closure) {
-		if (treeMap != null) return closure.call(treeMap)
+	private static whenTreeMapRootInitialized(Project project, Container treeMap, Closure callback) {
+		if (treeMap != null) return callback.call(treeMap)
 
 		doInBackground("Building tree map index for project...", {
 		  log("Started building treemap for ${project}")
@@ -106,18 +107,26 @@ class ProjectTreeMap {
 			} finally {
 				log("Finished building treemap for ${project}")
 			}
-		}, { closure.call(treeMap) })
+		}, { callback.call(treeMap) })
 	}
 
 	private static SimpleHttpServer loadIntoHttpServer(String projectId, String pathToHttpFiles, String json) {
-		// TODO use json to fill html template
 		def tempDir = FileUtil.createTempDirectory(projectId + "_", "_treemap")
 		FileUtil.copyDirContent(new File(pathToHttpFiles), tempDir)
-		show(tempDir.absolutePath)
+		fillTemplate("$pathToHttpFiles/treemap_template.html", json, tempDir.absolutePath + "/treemap.html")
+
+		log(tempDir.absolutePath)
+
 		restartHttpServer(projectId, tempDir.absolutePath, {
 			log(it)
 			null
 		}, {log(it)})
+	}
+
+	private static void fillTemplate(String template, String jsValue, String pathToNewFile) {
+		def templateText = new File(template).readLines().join("\n")
+		def text = templateText.replaceFirst(/(?s)\/\*data_placeholder\*\/.*\/\*data_placeholder\*\//, Matcher.quoteReplacement(jsValue))
+		new File(pathToNewFile).write(text)
 	}
 
 	private static SimpleHttpServer loadIntoHttpServer(String webRootPath, Container treeMap) {
