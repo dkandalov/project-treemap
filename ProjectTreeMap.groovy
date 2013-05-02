@@ -6,15 +6,11 @@ import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.ui.popup.JBPopupFactory
-import com.intellij.openapi.util.io.FileUtil
 import com.intellij.psi.*
 import http.SimpleHttpServer
 
-import java.util.regex.Matcher
-
-import static http.Util.restartHttpServer
+import static http.Util.loadIntoHttpServer
 import static intellijeval.PluginUtil.*
-
 /**
  * What could be improved:
  *  - !!! add listener to VirtualFileManager and track all changes to keep treemap up-to-date
@@ -35,7 +31,7 @@ class ProjectTreeMap {
 			Map<Project, Container> treeMapsToProject = getGlobalVar("treeMapsToProject", new WeakHashMap<Project, Container>())
 			def thisProjectTreeMap = { treeMapsToProject.get(project) } // TODO doesn't work after plugin reload
 
-			def showTreeMapInBrowser_SelfContained = {
+			def showTreeMapInBrowser = {
 				whenTreeMapRootInitialized(project, thisProjectTreeMap.call()) { Container treeMap ->
 					treeMapsToProject.put(project, treeMap)
 					SimpleHttpServer server = loadIntoHttpServer(project.name, pluginPath + "/http", treeMap.wholeTreeToJSON())
@@ -48,13 +44,13 @@ class ProjectTreeMap {
 					new DefaultActionGroup().with {
 						add(new AnAction("Show in Browser") {
 							@Override void actionPerformed(AnActionEvent event) {
-								showTreeMapInBrowser_SelfContained()
+								showTreeMapInBrowser()
 							}
 						})
 						add(new AnAction("Recalculate and Show in Browser") {
 							@Override void actionPerformed(AnActionEvent event) {
 								treeMapsToProject.remove(project)
-								showTreeMapInBrowser_SelfContained()
+								showTreeMapInBrowser()
 							}
 							@Override void update(AnActionEvent event) { event.presentation.enabled = (thisProjectTreeMap() != null) }
 						})
@@ -94,22 +90,6 @@ class ProjectTreeMap {
 				log("Finished building treemap for ${project}")
 			}
 		}, { callback.call(treeMap) })
-	}
-
-	private static SimpleHttpServer loadIntoHttpServer(String projectId, String pathToHttpFiles, String json) {
-		def tempDir = FileUtil.createTempDirectory(projectId + "_", "_treemap")
-		FileUtil.copyDirContent(new File(pathToHttpFiles), tempDir)
-		fillTemplate("$pathToHttpFiles/treemap_template.html", json, tempDir.absolutePath + "/treemap.html")
-
-		log("Saved tree map into: " + tempDir.absolutePath)
-
-		restartHttpServer(projectId, tempDir.absolutePath, {null}, {log(it)})
-	}
-
-	private static void fillTemplate(String template, String jsValue, String pathToNewFile) {
-		def templateText = new File(template).readLines().join("\n")
-		def text = templateText.replaceFirst(/(?s)\/\*data_placeholder\*\/.*\/\*data_placeholder\*\//, Matcher.quoteReplacement(jsValue))
-		new File(pathToNewFile).write(text)
 	}
 
 	static class PackageAndClassTreeBuilder {
