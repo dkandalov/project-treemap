@@ -3,8 +3,8 @@ import com.intellij.openapi.util.io.FileUtil
 
 import java.util.regex.Matcher
 
-import static intellijeval.PluginUtil.changeGlobalVar
-import static intellijeval.PluginUtil.log
+import static liveplugin.PluginUtil.changeGlobalVar
+import static liveplugin.PluginUtil.log
 
 class Util {
 	static SimpleHttpServer loadIntoHttpServer(String projectId, String pathToHttpFiles, String json) {

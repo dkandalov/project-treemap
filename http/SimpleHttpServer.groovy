@@ -5,10 +5,7 @@ import com.sun.net.httpserver.HttpServer
 
 import java.util.concurrent.Executors
 
-/**
- * User: dima
- * Date: 17/10/2012
- */
+
 class SimpleHttpServer {
 	int port
 	private HttpServer server

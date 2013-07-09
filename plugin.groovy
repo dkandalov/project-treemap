@@ -6,10 +6,10 @@ import com.intellij.psi.PsiJavaFile
 import com.intellij.psi.PsiManager
 
 import static ProjectTreeMap.JavaClassEstimator
-import static intellijeval.PluginUtil.show
+import static liveplugin.PluginUtil.show
 
 ProjectTreeMap.initActions(pluginPath)
-show("reloaded")
+if (!isIdeStartup) show("reloaded")
 
 if (true) return
 // the code below is to experiment and play with java classes size estimation

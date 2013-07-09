@@ -2,6 +2,7 @@ import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
+import com.intellij.openapi.progress.PerformInBackgroundOption
 import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectRootManager
@@ -10,7 +11,8 @@ import com.intellij.psi.*
 import http.SimpleHttpServer
 
 import static http.Util.loadIntoHttpServer
-import static intellijeval.PluginUtil.*
+import static liveplugin.PluginUtil.*
+
 /**
  * What could be improved:
  *  - !!! add listener to VirtualFileManager and track all changes to keep treemap up-to-date
@@ -78,7 +80,7 @@ class ProjectTreeMap {
 	private static whenTreeMapRootInitialized(Project project, Container treeMap, Closure callback) {
 		if (treeMap != null) return callback.call(treeMap)
 
-		doInBackground("Building tree map index for project...", {
+		doInBackground("Building tree map index for project...", false, PerformInBackgroundOption.ALWAYS_BACKGROUND, {
 		  log("Started building treemap for ${project}")
 			try {
 				treeMap = new PackageAndClassTreeBuilder(project).buildTree()
@@ -89,7 +91,7 @@ class ProjectTreeMap {
 			} finally {
 				log("Finished building treemap for ${project}")
 			}
-		}, { callback.call(treeMap) })
+		}, {}, { callback.call(treeMap) })
 	}
 
 	static class PackageAndClassTreeBuilder {
@@ -216,24 +218,6 @@ class ProjectTreeMap {
 
 			"{" +
 			"\"name\": \"$name\", " +
-			"\"size\": \"$size\", " +
-			childrenAsJSON +
-			"}"
-		}
-
-		String toJSON(int maxDepth = 1, int level = 0) {
-			String childrenAsJSON
-			String jsonName
-			if (level < maxDepth) {
-				childrenAsJSON = "\"children\": [\n" + children.collect { it.toJSON(maxDepth, level + 1) }.join(',\n') + "]"
-				jsonName = fullName
-			} else {
-				childrenAsJSON = "\"hasChildren\": " + (children.size() > 0 ? "true" : "false")
-				jsonName = name
-			}
-
-			"{" +
-			"\"name\": \"$jsonName\", " +
 			"\"size\": \"$size\", " +
 			childrenAsJSON +
 			"}"
