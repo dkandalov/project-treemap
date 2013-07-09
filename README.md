@@ -3,7 +3,7 @@ What is this?
 
 This is a micro-plugin for IntelliJ that shows packages/classes treemap using [d3.js](http://d3js.org/).
 <br/>
-(It runs inside [intellij-eval](https://github.com/dkandalov/intellij_eval) plugin and needs browser with SVG support.
+(It runs inside [live-plugin](https://github.com/dkandalov/live-plugin) plugin and needs browser with SVG support.
 Implemented for Java but should be easy to extend for other languages supported by IntelliJ.)
 
 
@@ -56,7 +56,7 @@ This is how it's implemented in ProjectTreeMap.groovy (you can change this code 
 
 How to use?
 ===========
- - install [intellij-eval](https://github.com/dkandalov/intellij_eval)
+ - install [live-plugin](https://github.com/dkandalov/live-plugin)
  - add and run this plugin (Plugins Tool Window -> Add -> Plugin from Git)
  - use alt+T to build/open treemap for current project
  - (in browser) click to go one level down, alt+click to go one level up
