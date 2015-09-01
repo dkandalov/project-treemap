@@ -9,6 +9,7 @@ import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.psi.*
 import http.SimpleHttpServer
+import liveplugin.PluginUtil
 
 import static http.Util.loadIntoHttpServer
 import static liveplugin.PluginUtil.*
@@ -102,7 +103,7 @@ class ProjectTreeMap {
 		}
 
 		public Container buildTree() {
-			def topLevelContainers = sourceRootsIn(project).collect { root ->
+			def topLevelContainers = PackageAndClassTreeBuilder.sourceRootsIn(project).collect { root ->
 				String rootName = runReadAction{ (root.parent == null ? "" : root.parent.name) + "/" + root.name }
 				convertToContainerHierarchy(root).withName(rootName)
 			}
