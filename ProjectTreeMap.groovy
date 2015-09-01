@@ -40,14 +40,14 @@ class ProjectTreeMap {
 
 					def json = treeMap.wholeTreeToJSON()
 					def pathToHttpFiles = pluginPath + "/http"
-					def tempDir = FileUtil.createTempDirectory(project.name + "_", "_treemap")
+					def tempDir = FileUtil.createTempDirectory(project.name + "_", "_codecity")
 					FileUtil.copyDirContent(new File(pathToHttpFiles), tempDir)
-					fillTemplate("$pathToHttpFiles/treemap_template.html", json, tempDir.absolutePath + "/treemap.html")
-					log("Saved tree map into: " + tempDir.absolutePath)
+					fillTemplate("$pathToHttpFiles/code-city-template.html", json, tempDir.absolutePath + "/code-city.html")
+					log("Saved html into: " + tempDir.absolutePath)
 
 					def server = restartHttpServer(project.name, tempDir.absolutePath, {null}, {log(it)})
 
-					BrowserUtil.browse("http://localhost:${server.port}/treemap.html")
+					BrowserUtil.browse("http://localhost:${server.port}/code-city.html")
 				}
 			}
 
@@ -136,14 +136,15 @@ class ProjectTreeMap {
 		@Optimization private static Container convertToContainerHierarchy(PsiDirectory directory) {
 			def childContainers = []
 			def subDirectories = runReadAction {
-				JavaDirectoryService.instance.getClasses(directory).each {
-					def metrics = [
-							size: sizeOf(it),
+				JavaDirectoryService.instance.getClasses(directory)
+					.findAll{ it.containingFile instanceof PsiJavaFile }
+					.each {
+						def metrics = [
 							amountOfMethods: new JavaClassMethodCounter().sizeOf(it),
 							amountOfFields: new JavaClassFieldCounter().sizeOf(it)
-					]
-					childContainers.add(new Container(it.name, metrics))
-				}
+						]
+						childContainers.add(new Container(it.name, metrics))
+					}
 				directory.subdirectories
 			}
 			subDirectories.each{ childContainers.add(convertToContainerHierarchy(it as PsiDirectory)) }
@@ -175,7 +176,6 @@ class ProjectTreeMap {
 			if (!psiClass.containingFile instanceof PsiJavaFile)
 				throw new IllegalArgumentException("$psiClass is not a Java class")
 
-			psiClass.initializers.size() +
 			psiClass.constructors.size() +
 			psiClass.methods.size() +
 			sum(psiClass.innerClasses, { sizeOf((PsiClass) it) })
