@@ -1,28 +1,8 @@
 package http
-import com.intellij.openapi.util.io.FileUtil
-
-import java.util.regex.Matcher
 
 import static liveplugin.PluginUtil.changeGlobalVar
-import static liveplugin.PluginUtil.log
 
 class Util {
-	static SimpleHttpServer loadIntoHttpServer(String projectId, String pathToHttpFiles, String json) {
-		def tempDir = FileUtil.createTempDirectory(projectId + "_", "_treemap")
-		FileUtil.copyDirContent(new File(pathToHttpFiles), tempDir)
-		fillTemplate("$pathToHttpFiles/treemap_template.html", json, tempDir.absolutePath + "/treemap.html")
-
-		log("Saved tree map into: " + tempDir.absolutePath)
-
-		restartHttpServer(projectId, tempDir.absolutePath, {null}, {log(it)})
-	}
-
-	private static void fillTemplate(String template, String jsValue, String pathToNewFile) {
-		def templateText = new File(template).readLines().join("\n")
-		def text = templateText.replaceFirst(/(?s)\/\*data_placeholder\*\/.*\/\*data_placeholder\*\//, Matcher.quoteReplacement(jsValue))
-		new File(pathToNewFile).write(text)
-	}
-
 	static SimpleHttpServer restartHttpServer(String id, String webRootPath, Closure handler = {null}, Closure errorListener = {}) {
 		changeGlobalVar(id) { previousServer ->
 			if (previousServer != null) {

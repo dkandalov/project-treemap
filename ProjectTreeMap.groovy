@@ -7,10 +7,12 @@ import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.ui.popup.JBPopupFactory
+import com.intellij.openapi.util.io.FileUtil
 import com.intellij.psi.*
-import http.SimpleHttpServer
 
-import static http.Util.loadIntoHttpServer
+import java.util.regex.Matcher
+
+import static http.Util.restartHttpServer
 import static liveplugin.PluginUtil.*
 /**
  * What could be improved:
@@ -35,7 +37,16 @@ class ProjectTreeMap {
 			def showTreeMapInBrowser = {
 				whenTreeMapRootInitialized(project, thisProjectTreeMap.call()) { Container treeMap ->
 					treeMapsToProject.put(project, treeMap)
-					SimpleHttpServer server = loadIntoHttpServer(project.name, pluginPath + "/http", treeMap.wholeTreeToJSON())
+
+					def json = treeMap.wholeTreeToJSON()
+					def pathToHttpFiles = pluginPath + "/http"
+					def tempDir = FileUtil.createTempDirectory(project.name + "_", "_treemap")
+					FileUtil.copyDirContent(new File(pathToHttpFiles), tempDir)
+					fillTemplate("$pathToHttpFiles/treemap_template.html", json, tempDir.absolutePath + "/treemap.html")
+					log("Saved tree map into: " + tempDir.absolutePath)
+
+					def server = restartHttpServer(project.name, tempDir.absolutePath, {null}, {log(it)})
+
 					BrowserUtil.browse("http://localhost:${server.port}/treemap.html")
 				}
 			}
@@ -75,6 +86,13 @@ class ProjectTreeMap {
 		}
 		log("Registered ProjectTreeMap actions")
 	}
+
+	private static void fillTemplate(String template, String jsValue, String pathToNewFile) {
+		def templateText = new File(template).readLines().join("\n")
+		def text = templateText.replaceFirst(/(?s)\/\*data_placeholder\*\/.*\/\*data_placeholder\*\//, Matcher.quoteReplacement(jsValue))
+		new File(pathToNewFile).write(text)
+	}
+
 
 	private static whenTreeMapRootInitialized(Project project, Container treeMap, Closure callback) {
 		if (treeMap != null) return callback.call(treeMap)
@@ -119,7 +137,12 @@ class ProjectTreeMap {
 			def childContainers = []
 			def subDirectories = runReadAction {
 				JavaDirectoryService.instance.getClasses(directory).each {
-					childContainers.add(new Container(it.name, [size: sizeOf(it)]))
+					def metrics = [
+							size: sizeOf(it),
+							amountOfMethods: new JavaClassMethodCounter().sizeOf(it),
+							amountOfFields: new JavaClassFieldCounter().sizeOf(it)
+					]
+					childContainers.add(new Container(it.name, metrics))
 				}
 				directory.subdirectories
 			}
