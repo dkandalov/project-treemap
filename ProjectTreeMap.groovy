@@ -9,11 +9,9 @@ import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.psi.*
 import http.SimpleHttpServer
-import liveplugin.PluginUtil
 
 import static http.Util.loadIntoHttpServer
 import static liveplugin.PluginUtil.*
-
 /**
  * What could be improved:
  *  - !!! add listener to VirtualFileManager and track all changes to keep treemap up-to-date
@@ -38,7 +36,7 @@ class ProjectTreeMap {
 				whenTreeMapRootInitialized(project, thisProjectTreeMap.call()) { Container treeMap ->
 					treeMapsToProject.put(project, treeMap)
 					SimpleHttpServer server = loadIntoHttpServer(project.name, pluginPath + "/http", treeMap.wholeTreeToJSON())
-					BrowserUtil.launchBrowser("http://localhost:${server.port}/treemap.html")
+					BrowserUtil.browse("http://localhost:${server.port}/treemap.html")
 				}
 			}
 
@@ -119,17 +117,16 @@ class ProjectTreeMap {
 
 		@Optimization private static Container convertToContainerHierarchy(PsiDirectory directory) {
 			def childContainers = []
-
 			def subDirectories = runReadAction {
-				JavaDirectoryService.instance.getClasses(directory).each{ childContainers.add(convertToElement(it)) }
+				JavaDirectoryService.instance.getClasses(directory).each {
+					childContainers.add(new Container(it.name, [size: sizeOf(it)]))
+				}
 				directory.subdirectories
 			}
 			subDirectories.each{ childContainers.add(convertToContainerHierarchy(it as PsiDirectory)) }
 
 			new Container(directory.name, childContainers)
 		}
-
-		private static Container convertToElement(PsiClass psiClass) { new Container(psiClass.name, sizeOf(psiClass)) }
 
 		private static sizeOf(PsiClass psiClass) {
 			if (psiClass.containingFile instanceof PsiJavaFile)
@@ -147,6 +144,40 @@ class ProjectTreeMap {
 			// TODO
 			if (psiClass.text == null) return 1
 			psiClass.text.split("\n").findAll{ it.trim() != "" }.size()
+		}
+	}
+
+	static class JavaClassMethodCounter {
+		int sizeOf(PsiClass psiClass) {
+			if (!psiClass.containingFile instanceof PsiJavaFile)
+				throw new IllegalArgumentException("$psiClass is not a Java class")
+
+			psiClass.initializers.size() +
+			psiClass.constructors.size() +
+			psiClass.methods.size() +
+			sum(psiClass.innerClasses, { sizeOf((PsiClass) it) })
+		}
+
+		@Optimization private static int sum(Object[] array, Closure closure) {
+			int sum = 0
+			for (object in array) sum += closure(object)
+			sum
+		}
+	}
+
+	static class JavaClassFieldCounter {
+		int sizeOf(PsiClass psiClass) {
+			if (!psiClass.containingFile instanceof PsiJavaFile)
+				throw new IllegalArgumentException("$psiClass is not a Java class")
+
+			psiClass.fields.size() +
+			sum(psiClass.innerClasses, { sizeOf((PsiClass) it) })
+		}
+
+		@Optimization private static int sum(Object[] array, Closure closure) {
+			int sum = 0
+			for (object in array) sum += closure(object)
+			sum
 		}
 	}
 
@@ -182,31 +213,34 @@ class ProjectTreeMap {
 	}
 
 	static class Container {
-		final String name
-		final Collection<Container> children
-		final int size
-		Container parent = null
+		private final String name
+		private final Collection<Container> children
+		private final Map<String, Integer> metrics = [:].withDefault{0}
+		private Container parent = null
 
 		Container(String name, Collection<Container> children) {
-			this(name, children, sumOfChildrenSizes(children))
+			this(name, children, sumOfChildrenMetrics(children))
 		}
 
-		Container(String name, Collection<Container> children = new ArrayList(), int size) {
+		Container(String name, Collection<Container> children = new ArrayList(), Map<String, Integer> metrics) {
 			this.name = name
-			this.children = children.findAll{ it.size > 0 }
-			this.size = size
-
-			for (child in this.children) child.parent = this
+			this.children = children.findAll{ it.metrics.size() > 0 }
+			this.children.each { child -> child.parent = this }
+			this.metrics = metrics
 		}
 
 		Container withName(String newName) {
-			new Container(newName, children, size)
+			new Container(newName, children, metrics)
 		}
 
-		@Optimization static int sumOfChildrenSizes(Collection<Container> children) {
-			int sum = 0
-			for (Container child in children) sum += child.size
-			sum
+		static Map<String, Integer> sumOfChildrenMetrics(Collection<Container> children) {
+			Map<String, Integer> result = [:].withDefault{0}
+			for (Container child in children) {
+				child.metrics.entrySet().each {
+					result[it.key] += it.value
+				}
+			}
+			result
 		}
 
 		private String getFullName() {
@@ -215,12 +249,13 @@ class ProjectTreeMap {
 		}
 
 		String wholeTreeToJSON() {
-			String childrenAsJSON = "\"children\": [\n" + children.collect { it.wholeTreeToJSON() }.join(',\n') + "]"
+			String childrenAsJson = "\"children\": [\n" + children.collect { it.wholeTreeToJSON() }.join(',\n') + "]"
+			String metricsAsJson = metrics.collect{ "\"${it.key}\": ${it.value}" }.join(", \n")
 
 			"{" +
-			"\"name\": \"$name\", " +
-			"\"size\": \"$size\", " +
-			childrenAsJSON +
+				"\"name\": \"$name\", \n" +
+				metricsAsJson + ", \n" +
+				childrenAsJson +
 			"}"
 		}
 	}
